@@ -1,0 +1,159 @@
+import sys
+from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
+                           QHBoxLayout, QPushButton, QLabel, QSpinBox, 
+                           QComboBox, QGroupBox)
+from PyQt5.QtCore import QTimer
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
+from matplotlib.figure import Figure
+from heapq import heappush, heappop
+
+class RoverSimGUI(QMainWindow):
+   def __init__(self):
+       super().__init__()
+       self.setWindowTitle("Mars Rover Simulator")
+       self.setGeometry(100, 100, 1200, 800)
+
+       main_widget = QWidget()
+       self.setCentralWidget(main_widget)
+       layout = QHBoxLayout(main_widget)
+
+       control_panel = self.create_control_panel()
+       layout.addWidget(control_panel)
+
+       self.figure = Figure(figsize=(8, 8))
+       self.canvas = FigureCanvasQTAgg(self.figure)
+       layout.addWidget(self.canvas)
+
+       self.grid_size = 20
+       self.num_obstacles = 50
+       self.energy = 100
+       self.terrain = None
+       self.rover_pos = [0, 0]
+       self.goal_pos = None
+       self.is_running = False
+       self.path = []
+       self.current_path_index = 0
+       self.algorithm = "A*"
+       
+       self.terrain_costs = {
+           0: 1,  # Clear path
+           1: float('inf'),  # Obstacle
+           2: 1,  # Rover
+           3: 1,  # Goal
+           4: 2,  # Sand
+           5: 3   # Rocks
+       }
+       
+       self.timer = QTimer()
+       self.timer.timeout.connect(self.update_simulation)
+       
+       self.initialize_terrain()
+       self.update_plot()
+
+   def create_control_panel(self):
+       control_widget = QWidget()
+       control_layout = QVBoxLayout(control_widget)
+
+       param_group = QGroupBox("Simulation Parameters")
+       param_layout = QVBoxLayout()
+
+       grid_layout = QHBoxLayout()
+       grid_layout.addWidget(QLabel("Grid Size:"))
+       self.grid_size_spin = QSpinBox()
+       self.grid_size_spin.setRange(10, 50)
+       self.grid_size_spin.setValue(20)
+       grid_layout.addWidget(self.grid_size_spin)
+       param_layout.addLayout(grid_layout)
+
+       obstacle_layout = QHBoxLayout()
+       obstacle_layout.addWidget(QLabel("Obstacles:"))
+       self.obstacle_spin = QSpinBox()
+       self.obstacle_spin.setRange(0, 100)
+       self.obstacle_spin.setValue(50)
+       obstacle_layout.addWidget(self.obstacle_spin)
+       param_layout.addLayout(obstacle_layout)
+
+       energy_layout = QHBoxLayout()
+       energy_layout.addWidget(QLabel("Initial Energy:"))
+       self.energy_spin = QSpinBox()
+       self.energy_spin.setRange(50, 200)
+       self.energy_spin.setValue(100)
+       energy_layout.addWidget(self.energy_spin)
+       param_layout.addLayout(energy_layout)
+       
+       algorithm_layout = QHBoxLayout()
+       algorithm_layout.addWidget(QLabel("Pathfinding Algorithm:"))
+       self.algorithm_combo = QComboBox()
+       self.algorithm_combo.addItems(["A*", "Dijkstra"])
+       algorithm_layout.addWidget(self.algorithm_combo)
+       param_layout.addLayout(algorithm_layout)
+
+       param_group.setLayout(param_layout)
+       control_layout.addWidget(param_group)
+
+       button_group = QGroupBox("Controls")
+       button_layout = QVBoxLayout()
+
+       self.start_button = QPushButton("Start")
+       self.start_button.clicked.connect(self.toggle_simulation)
+       button_layout.addWidget(self.start_button)
+
+       self.reset_button = QPushButton("Reset")
+       self.reset_button.clicked.connect(self.reset_simulation)
+       button_layout.addWidget(self.reset_button)
+
+       button_group.setLayout(button_layout)
+       control_layout.addWidget(button_group)
+
+       control_layout.addStretch()
+       return control_widget
+
+   def calculate_path(self):
+       algorithm = self.algorithm_combo.currentText()
+       if algorithm == "A*":
+           came_from, _ = self.a_star(tuple(self.rover_pos), tuple(self.goal_pos))
+       else:
+           came_from, _ = self.dijkstra(tuple(self.rover_pos), tuple(self.goal_pos))
+       
+       if came_from:
+           current = tuple(self.goal_pos)
+           self.path = []
+           while current != tuple(self.rover_pos):
+               self.path.append(current)
+               current = came_from[current]
+           self.path.append(tuple(self.rover_pos))
+           self.path.reverse()
+           self.current_path_index = 0
+       else:
+           self.path = []
+
+   def dijkstra(self, start, goal):
+       frontier = [(0, start)]
+       came_from = {start: None}
+       cost_so_far = {start: 0}
+       
+       while frontier:
+           current_cost, current = heappop(frontier)
+           
+           if current == goal:
+               break
+           
+           for next_pos in self.get_neighbors(current):
+               if self.terrain[next_pos] == 1:
+                   continue
+               
+               new_cost = cost_so_far[current] + self.terrain_costs[self.terrain[next_pos]]
+               if next_pos not in cost_so_far or new_cost < cost_so_far[next_pos]:
+                   cost_so_far[next_pos] = new_cost
+                   heappush(frontier, (new_cost, next_pos))
+                   came_from[next_pos] = current
+       
+       return (came_from, cost_so_far) if goal in came_from else (None, None)
+
+if __name__ == '__main__':
+   app = QApplication(sys.argv)
+   window = RoverSimGUI()
+   window.show()
+   sys.exit(app.exec_())
