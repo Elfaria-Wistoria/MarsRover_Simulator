@@ -41,7 +41,7 @@ mars-rover-simulator/
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/mars-rover-simulator.git
+git clone https://github.com/Elfaria-Wistoria/MarsRover_Simulator.git
 cd mars-rover-simulator
 ```
 
@@ -160,5 +160,5 @@ Planned improvements include:
 
 ## Contact
 
-Your Name - your.email@example.com
-Project Link: [https://github.com/yourusername/mars-rover-simulator](https://github.com/yourusername/mars-rover-simulator)
+Edwinsyah - edwinsyah23032003@gmail.com
+Project Link: https://github.com/Elfaria-Wistoria/MarsRover_Simulator.git
